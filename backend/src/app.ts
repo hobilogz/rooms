@@ -73,7 +73,7 @@ export async function buildApp() {
     openapi: {
       openapi: "3.0.3",
       info: {
-        title: "Rooms API",
+        title: "Audiences API",
         version: "1.0.0",
         description: "HTTP-API, совместим с RFC 9457.",
       },
@@ -396,7 +396,7 @@ export async function buildApp() {
   );
 
   app.post("/api/dev/seed-rooms", { schema: { hide: true } }, async () => {
-    const count = await app.prisma.room.count();
+    const count = await app.prisma.audience.count();
     if (count > 0) return { ok: true, created: 0 };
 
     const audiences = [
@@ -406,7 +406,7 @@ export async function buildApp() {
       { number: "04", name: "Аудитория 04" },
     ];
 
-    await app.prisma.room.createMany({ data: audiences });
+    await app.prisma.audience.createMany({ data: audiences });
     return { ok: true, created: audiences.length };
   });
 
