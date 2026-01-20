@@ -41,7 +41,7 @@
  *.tsbuildinfo
 
  # IDE
- .vscode/
+ .vs/
  .idea/
  *.swp
  *.swo
