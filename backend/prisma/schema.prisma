@@ -7,7 +7,6 @@
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
-  binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
 }
 
 datasource db {
@@ -23,7 +22,7 @@ model User {
   createdAt DateTime @default(now())
 }
 
-model Room {
+model Audience {
   number    String   @id
   name      String?
   createdAt DateTime @default(now())
