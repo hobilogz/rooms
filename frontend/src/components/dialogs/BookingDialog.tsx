@@ -20,7 +20,7 @@ import {
   createBooking,
   updateBooking,
   fetchBookingById,
-} from "../../api/BookingsApi"; // поправь путь если другой
+} from "../../api/BookingsApi";
 
 dayjs.extend(utc);
 dayjs.locale("ru");
@@ -46,7 +46,7 @@ interface BookingFormData {
   endTime: Dayjs | null;
 }
 
-// минимальный список аудиторий (seed на бэке есть, но ты просил аудитории не реализовывать)
+// минимальный список аудиторий
 const audiences: AudienceOption[] = [
   { id: "01", name: "Аудитория 01" },
   { id: "02", name: "Аудитория 02" },
