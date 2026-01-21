@@ -1,21 +1,21 @@
-// src/api/bookingApi.ts
+// src/api/bookingsApi.ts
 import { http } from "./http";
-
-export type BookingStatus = "PENDING" | "CONFIRMED" | "CANCELLED";
 
 export type BookingDto = {
   id: string;
-  roomId: string;
-  room?: { number: string } | null;
-  organizerName: string;
-  startDate: string;
-  endDate: string;
-  startTime: string;
-  endTime: string;
-  status?: BookingStatus;
+  organizer: string;
+  audienceId: string;
+  startTime: string; // ISO
+  endTime: string; // ISO
+  audience?: { number: string } | null;
 };
 
-export type BookingCreateDto = Omit<BookingDto, "id" | "room">;
+export type BookingCreateDto = {
+  organizer: string;
+  audienceId: string;
+  startTime: string; // ISO
+  endTime: string; // ISO
+};
 
 export async function fetchActiveBookings() {
   const { data } = await http.get<BookingDto[]>("/bookings");

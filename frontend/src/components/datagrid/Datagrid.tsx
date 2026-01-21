@@ -1,117 +1,146 @@
+// src/components/datagrid/Datagrid.tsx
+import { useEffect, useMemo, useState } from "react";
 import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import {
   DataGrid,
   type GridColDef,
   GridActionsCellItem,
-  type GridRowParams, // Исправленный импорт
+  type GridRowParams,
 } from "@mui/x-data-grid";
-import type { EventRow } from "./Datagrid.types";
-import { Typography } from "@mui/material";
 
-// Новый набор данных с учетом требуемых столбцов
-const rows: EventRow[] = [
-  {
-    id: 1,
-    audience: "Студенты 1-го курса",
-    period: "Октябрь 2024",
-    organizer: "Кафедра ИТ",
-  },
-  {
-    id: 2,
-    audience: "Преподаватели",
-    period: "Ноябрь 2024",
-    organizer: "Отдел кадров",
-  },
-  {
-    id: 3,
-    audience: "Аспиранты",
-    period: "Декабрь 2024",
-    organizer: "Научный отдел",
-  },
-  {
-    id: 4,
-    audience: "Сотрудники администрации",
-    period: "Январь 2025",
-    organizer: "Администрация",
-  },
-  {
-    id: 5,
-    audience: "Бакалавры 2-го курса",
-    period: "Февраль 2025",
-    organizer: "Деканат",
-  },
-  {
-    id: 6,
-    audience: "Магистранты",
-    period: "Март 2025",
-    organizer: "Центр повышения квалификации",
-  },
-  {
-    id: 7,
-    audience: "Инженеры",
-    period: "Апрель 2025",
-    organizer: "Технический отдел",
-  },
-  {
-    id: 8,
-    audience: "Все сотрудники",
-    period: "Май 2025",
-    organizer: "Профсоюз",
-  },
-  {
-    id: 9,
-    audience: "Выпускники",
-    period: "Июнь 2025",
-    organizer: "Центр карьеры",
-  },
-];
+import {
+  fetchActiveBookings,
+  deleteBooking,
+  type BookingDto,
+} from "../../api/BookingsApi";
 
-const columns: GridColDef<EventRow>[] = [
-  {
-    field: "audience",
-    headerName: "Аудитория",
-    width: 250,
-    editable: false,
-  },
-  {
-    field: "period",
-    headerName: "Период",
-    width: 200,
-    editable: false,
-  },
-  {
-    field: "organizer",
-    headerName: "Организатор",
-    flex: 1,
-    editable: false,
-  },
-  // Сохраненный столбец "Действия"
-  {
-    field: "actions",
-    type: "actions",
-    headerName: "Действия",
-    width: 100,
-    // Использование GridRowParams<EventRow>
-    getActions: (params: GridRowParams<EventRow>) => [
-      <GridActionsCellItem
-        icon={<EditIcon />}
-        label="Редактировать"
-        onClick={() => console.log("Редактировать строку:", params.id)}
-        showInMenu
-      />,
-      <GridActionsCellItem
-        icon={<DeleteIcon />}
-        label="Удалить"
-        onClick={() => console.log("Удалить строку:", params.id)}
-        showInMenu
-      />,
-    ],
-  },
-];
+type Props = {
+  // сюда родитель передаст открытие диалога редактирования
+  onEdit: (id: string) => void;
+  // чтобы родитель мог обновлять таблицу после create/edit
+  refreshKey?: number;
+};
 
-export default function DataGridDemo() {
+type Row = {
+  id: string;
+  organizer: string;
+  audience: string;
+  startTime: string;
+  endTime: string;
+};
+
+function fmt(dtIso: string) {
+  const d = new Date(dtIso);
+  if (Number.isNaN(d.getTime())) return dtIso;
+  return d.toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export default function DataGridDemo({ onEdit, refreshKey = 0 }: Props) {
+  const [rows, setRows] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const data = await fetchActiveBookings(); // BookingDto[]
+      const mapped: Row[] = data.map((b: BookingDto) => ({
+        id: b.id,
+        organizer: b.organizer ?? "—",
+        audience: b.audience?.number ?? b.audienceId ?? "—",
+        startTime: b.startTime,
+        endTime: b.endTime,
+      }));
+      setRows(mapped);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+    // refreshKey меняется — перезагружаем
+  }, [refreshKey]);
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Удалить бронирование?")) return;
+
+    // оптимистично убираем строку
+    const prev = rows;
+    setRows((r) => r.filter((x) => x.id !== id));
+
+    try {
+      await deleteBooking(id);
+      // можно не делать load(), но лучше чтобы синхронизировать состояние
+      await load();
+    } catch {
+      // если ошибка — вернём как было
+      setRows(prev);
+    }
+  };
+
+  const columns = useMemo<GridColDef<Row>[]>(() => {
+    return [
+      {
+        field: "organizer",
+        headerName: "Организатор",
+        flex: 1,
+        minWidth: 200,
+        editable: false,
+      },
+      {
+        field: "audience",
+        headerName: "Аудитория",
+        width: 150,
+        editable: false,
+      },
+      {
+        field: "startTime",
+        headerName: "Начало",
+        width: 190,
+        editable: false,
+        valueFormatter: (v) => fmt(String(v)),
+      },
+      {
+        field: "endTime",
+        headerName: "Окончание",
+        width: 190,
+        editable: false,
+        valueFormatter: (v) => fmt(String(v)),
+      },
+      {
+        field: "actions",
+        type: "actions",
+        headerName: "Действия",
+        width: 110,
+        getActions: (params: GridRowParams<Row>) => [
+          <GridActionsCellItem
+            key="edit"
+            icon={<EditIcon />}
+            label="Редактировать"
+            onClick={() => onEdit(String(params.id))}
+            showInMenu
+          />,
+          <GridActionsCellItem
+            key="delete"
+            icon={<DeleteIcon />}
+            label="Удалить"
+            onClick={() => handleDelete(String(params.id))}
+            showInMenu
+          />,
+        ],
+      },
+    ];
+  }, [onEdit, rows]);
+
   return (
     <Box
       sx={{
@@ -136,23 +165,16 @@ export default function DataGridDemo() {
       >
         Список бронирований
       </Typography>
-      <Box
-        sx={{
-          height: 400,
-          width: "100%",
-        }}
-      >
+
+      <Box sx={{ height: 400, width: "100%" }}>
         <DataGrid
           rows={rows}
           columns={columns}
+          loading={loading}
           initialState={{
-            pagination: {
-              paginationModel: {
-                pageSize: 5,
-              },
-            },
+            pagination: { paginationModel: { pageSize: 5 } },
           }}
-          pageSizeOptions={[5]}
+          pageSizeOptions={[5, 10]}
           disableRowSelectionOnClick
         />
       </Box>

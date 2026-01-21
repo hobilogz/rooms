@@ -38,7 +38,10 @@ export async function buildApp() {
   await app.register(helmet);
 
   // CORS ограничивает кросс-доменные запросы. Здесь полностью запрещаем их (origin: false) по умолчанию.
-  await app.register(cors, { origin: false });
+  await app.register(cors, {
+    origin: true,
+    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+  });
 
   /**
    * Ограничитель количества запросов на IP.
@@ -311,14 +314,23 @@ export async function buildApp() {
         },
       });
 
-      return bookings.map((b) => ({
-        id: b.id,
-        organizer: b.organizer,
-        audienceId: b.audienceId,
-        startTime: b.startTime.toISOString(),
-        endTime: b.endTime.toISOString(),
-        ...(b.audience ? { audience: { number: b.audience.number } } : {}),
-      }));
+      return bookings.map(
+        (b: {
+          id: any;
+          organizer: any;
+          audienceId: any;
+          startTime: { toISOString: () => any };
+          endTime: { toISOString: () => any };
+          audience: { number: any };
+        }) => ({
+          id: b.id,
+          organizer: b.organizer,
+          audienceId: b.audienceId,
+          startTime: b.startTime.toISOString(),
+          endTime: b.endTime.toISOString(),
+          ...(b.audience ? { audience: { number: b.audience.number } } : {}),
+        }),
+      );
     },
   );
 

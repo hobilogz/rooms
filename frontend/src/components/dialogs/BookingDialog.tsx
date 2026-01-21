@@ -10,165 +10,203 @@ import Autocomplete from "@mui/material/Autocomplete";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { TimePicker } from "@mui/x-date-pickers/TimePicker";
 import dayjs, { Dayjs } from "dayjs";
-import utc from "dayjs/plugin/utc"; // Импорт плагина UTC
+import utc from "dayjs/plugin/utc";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import "dayjs/locale/ru"; // Импортируем русскую локализацию для dayjs
+import "dayjs/locale/ru";
 import { ruRU } from "@mui/x-date-pickers/locales";
 
-// Активируем плагин UTC для dayjs
-dayjs.extend(utc);
-dayjs.locale("ru"); // Устанавливаем русскую локализацию
+import {
+  createBooking,
+  updateBooking,
+  fetchBookingById,
+} from "../../api/BookingsApi"; // поправь путь если другой
 
-interface Classroom {
-  id: string;
-  name: string;
+dayjs.extend(utc);
+dayjs.locale("ru");
+
+interface AudienceOption {
+  id: string; // audience.number (01/02/03/04)
+  name: string; // "Аудитория 01"
 }
 
-interface BookingDialogProps {
+type Props = {
   open: boolean;
   onClose: () => void;
-}
+  bookingId: string | null; // null => create
+  onSuccess?: () => void; // чтобы обновить таблицу
+};
 
 interface BookingFormData {
   organizer: string;
-  classroom: Classroom | null;
+  audience: AudienceOption | null;
   startDate: Dayjs | null;
   endDate: Dayjs | null;
   startTime: Dayjs | null;
   endTime: Dayjs | null;
 }
 
-// Mock data for the classroom ComboBox
-const mockClassrooms: Classroom[] = [
-  { id: "101", name: "Аудитория 101" },
-  { id: "102", name: "Лекционный зал 2" },
-  { id: "103", name: "Компьютерный класс 3" },
-  { id: "104", name: 'Конференц-зал "Нептун"' },
+// минимальный список аудиторий (seed на бэке есть, но ты просил аудитории не реализовывать)
+const audiences: AudienceOption[] = [
+  { id: "01", name: "Аудитория 01" },
+  { id: "02", name: "Аудитория 02" },
+  { id: "03", name: "Аудитория 03" },
+  { id: "04", name: "Аудитория 04" },
 ];
 
-// Function to create a fresh set of Dayjs objects every time
 const getInitialFormData = (): BookingFormData => ({
   organizer: "",
-  classroom: null,
-  // Создаются Dayjs объекты в ЛОКАЛЬНОМ времени (для отображения в пикерах)
+  audience: null,
   startDate: dayjs().add(1, "day").startOf("day"),
   endDate: dayjs().add(1, "day").startOf("day"),
   startTime: dayjs().hour(9).minute(0).second(0),
   endTime: dayjs().hour(10).minute(0).second(0),
 });
 
-export default function BookingDialog({ open, onClose }: BookingDialogProps) {
+export default function BookingDialog({
+  open,
+  onClose,
+  bookingId,
+  onSuccess,
+}: Props) {
+  const isEdit = !!bookingId;
+
   const [formData, setFormData] =
     React.useState<BookingFormData>(getInitialFormData);
   const [errors, setErrors] = React.useState<
     Partial<Record<keyof BookingFormData, string>>
   >({});
+  const [submitting, setSubmitting] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
 
-  // Reset form data and errors when dialog opens
+  // при открытии: create => reset; edit => load by id и заполнить
   React.useEffect(() => {
-    if (open) {
+    if (!open) return;
+
+    setErrors({});
+
+    if (!bookingId) {
       setFormData(getInitialFormData());
-      setErrors({});
+      return;
     }
-  }, [open]);
+
+    (async () => {
+      try {
+        setLoading(true);
+        const b = await fetchBookingById(bookingId);
+
+        const start = dayjs(b.startTime);
+        const end = dayjs(b.endTime);
+
+        setFormData({
+          organizer: b.organizer ?? "",
+          audience: audiences.find((a) => a.id === b.audienceId) ?? {
+            id: b.audienceId,
+            name: `Аудитория ${b.audience?.number ?? b.audienceId}`,
+          },
+          startDate: start.startOf("day"),
+          endDate: end.startOf("day"),
+          startTime: start,
+          endTime: end,
+        });
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [open, bookingId]);
 
   const validate = (): boolean => {
     const newErrors: Partial<Record<keyof BookingFormData, string>> = {};
+
+    if (!formData.organizer.trim())
+      newErrors.organizer = "Введите организатора";
+    if (!formData.audience) newErrors.audience = "Выберите аудиторию";
+    if (!formData.startDate) newErrors.startDate = "Выберите дату начала";
+    if (!formData.endDate) newErrors.endDate = "Выберите дату окончания";
+    if (!formData.startTime) newErrors.startTime = "Выберите время начала";
+    if (!formData.endTime) newErrors.endTime = "Выберите время окончания";
+
+    if (
+      formData.startDate &&
+      formData.endDate &&
+      formData.startTime &&
+      formData.endTime
+    ) {
+      const start = formData.startDate
+        .clone()
+        .hour(formData.startTime.hour())
+        .minute(formData.startTime.minute())
+        .second(0);
+
+      const end = formData.endDate
+        .clone()
+        .hour(formData.endTime.hour())
+        .minute(formData.endTime.minute())
+        .second(0);
+
+      if (!end.isAfter(start)) {
+        newErrors.endTime = "Окончание должно быть позже начала";
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleClose = () => {
-    onClose();
-  };
-
   const handleFieldChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleDateChange = (
-    key: "startDate" | "endDate",
-    newValue: Dayjs | null,
-  ) => {
-    setFormData((prev) => ({
-      ...prev,
-      [key]: newValue,
-    }));
-  };
-
-  const handleTimeChange = (
-    key: "startTime" | "endTime",
-    newValue: Dayjs | null,
-  ) => {
-    setFormData((prev) => ({
-      ...prev,
-      [key]: newValue,
-    }));
-  };
-
-  const handleClassroomChange = (newValue: Classroom | null) => {
-    setFormData((prev) => ({
-      ...prev,
-      classroom: newValue,
-    }));
-  };
-
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (validate()) {
-      const start = formData.startDate!;
-      const end = formData.endDate!;
-      const startTime = formData.startTime!;
-      const endTime = formData.endTime!;
+    if (!validate()) return;
 
-      // Combine local date and time
-      const fullStartTimeLocal = start
-        .clone()
-        .hour(startTime.hour())
-        .minute(startTime.minute())
-        .second(0);
-      const fullEndTimeLocal = end
-        .clone()
-        .hour(endTime.hour())
-        .minute(endTime.minute())
-        .second(0);
+    const start = formData
+      .startDate!.clone()
+      .hour(formData.startTime!.hour())
+      .minute(formData.startTime!.minute())
+      .second(0);
 
-      // Convert local time to UTC RFC 3339 string for server submission
-      const startUtcString = fullStartTimeLocal.toISOString();
-      const endUtcString = fullEndTimeLocal.toISOString();
+    const end = formData
+      .endDate!.clone()
+      .hour(formData.endTime!.hour())
+      .minute(formData.endTime!.minute())
+      .second(0);
 
-      console.log("Отправка данных бронирования:");
-      console.log("Организатор:", formData.organizer);
-      console.log("Аудитория ID:", formData.classroom?.id);
-      console.log("---");
-      console.log(
-        "Начало (Local Time):",
-        fullStartTimeLocal.format("DD.MM.YYYY HH:mm"),
-      );
-      console.log(
-        "Окончание (Local Time):",
-        fullEndTimeLocal.format("DD.MM.YYYY HH:mm"),
-      );
-      console.log("---");
-      console.log("Начало (UTC RFC 3339 для сервера):", startUtcString);
-      console.log("Окончание (UTC RFC 3339 для сервера):", endUtcString);
+    // серверу нужны ISO date-time
+    const payload = {
+      organizer: formData.organizer.trim(),
+      audienceId: formData.audience!.id,
+      startTime: start.toISOString(),
+      endTime: end.toISOString(),
+    };
 
-      // API call here...
-
-      handleClose();
-    } else {
-      console.error("Ошибка валидации формы");
+    try {
+      setSubmitting(true);
+      if (bookingId) {
+        await updateBooking(bookingId, payload);
+      } else {
+        await createBooking(payload);
+      }
+      onSuccess?.();
+      onClose();
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="md">
-      <DialogTitle>Создание бронирования</DialogTitle>
+    <Dialog
+      open={open}
+      onClose={submitting ? undefined : onClose}
+      fullWidth
+      maxWidth="md"
+    >
+      <DialogTitle>
+        {isEdit ? "Редактирование бронирования" : "Создание бронирования"}
+      </DialogTitle>
+
       <DialogContent>
         <form onSubmit={handleSubmit} id="booking-form">
           <Stack spacing={3} sx={{ paddingTop: "10px" }}>
@@ -183,25 +221,28 @@ export default function BookingDialog({ open, onClose }: BookingDialogProps) {
               onChange={handleFieldChange}
               error={!!errors.organizer}
               helperText={errors.organizer}
+              disabled={submitting || loading}
             />
 
             <Autocomplete
-              options={mockClassrooms}
-              getOptionLabel={(option) => option.name}
-              value={formData.classroom}
-              onChange={(_, newValue) => handleClassroomChange(newValue)}
+              options={audiences}
+              getOptionLabel={(o) => o.name}
+              value={formData.audience}
+              onChange={(_, newValue) =>
+                setFormData((prev) => ({ ...prev, audience: newValue }))
+              }
               renderInput={(params) => (
                 <TextField
                   {...params}
                   required
                   label="Аудитория"
-                  error={!!errors.classroom}
-                  helperText={errors.classroom}
+                  error={!!errors.audience}
+                  helperText={errors.audience}
+                  disabled={submitting || loading}
                 />
               )}
             />
 
-            {/* Wrap the DatePicker and TimePicker in LocalizationProvider */}
             <LocalizationProvider
               dateAdapter={AdapterDayjs}
               localeText={
@@ -212,26 +253,30 @@ export default function BookingDialog({ open, onClose }: BookingDialogProps) {
                 <DatePicker
                   label="Дата начала"
                   value={formData.startDate}
-                  onChange={(newValue) =>
-                    handleDateChange("startDate", newValue)
+                  onChange={(v) =>
+                    setFormData((prev) => ({ ...prev, startDate: v }))
                   }
                   enableAccessibleFieldDOMStructure={false}
                   format="DD.MM.YYYY"
                   slotProps={{
                     textField: {
                       fullWidth: true,
+                      disabled: submitting || loading,
                     },
                   }}
                 />
                 <DatePicker
                   label="Дата окончания"
                   value={formData.endDate}
-                  onChange={(newValue) => handleDateChange("endDate", newValue)}
+                  onChange={(v) =>
+                    setFormData((prev) => ({ ...prev, endDate: v }))
+                  }
                   enableAccessibleFieldDOMStructure={false}
                   format="DD.MM.YYYY"
                   slotProps={{
                     textField: {
                       fullWidth: true,
+                      disabled: submitting || loading,
                     },
                   }}
                 />
@@ -241,8 +286,8 @@ export default function BookingDialog({ open, onClose }: BookingDialogProps) {
                 <TimePicker
                   label="Время начала"
                   value={formData.startTime}
-                  onChange={(newValue) =>
-                    handleTimeChange("startTime", newValue)
+                  onChange={(v) =>
+                    setFormData((prev) => ({ ...prev, startTime: v }))
                   }
                   enableAccessibleFieldDOMStructure={false}
                   format="HH:mm"
@@ -250,19 +295,27 @@ export default function BookingDialog({ open, onClose }: BookingDialogProps) {
                   slotProps={{
                     textField: {
                       fullWidth: true,
+                      disabled: submitting || loading,
+                      error: !!errors.startTime,
+                      helperText: errors.startTime,
                     },
                   }}
                 />
                 <TimePicker
                   label="Время окончания"
                   value={formData.endTime}
-                  onChange={(newValue) => handleTimeChange("endTime", newValue)}
+                  onChange={(v) =>
+                    setFormData((prev) => ({ ...prev, endTime: v }))
+                  }
                   enableAccessibleFieldDOMStructure={false}
                   format="HH:mm"
                   ampm={false}
                   slotProps={{
                     textField: {
                       fullWidth: true,
+                      disabled: submitting || loading,
+                      error: !!errors.endTime,
+                      helperText: errors.endTime,
                     },
                   }}
                 />
@@ -271,8 +324,13 @@ export default function BookingDialog({ open, onClose }: BookingDialogProps) {
           </Stack>
         </form>
       </DialogContent>
+
       <DialogActions>
-        <Button onClick={handleClose} sx={{ color: "#2563EB" }}>
+        <Button
+          onClick={onClose}
+          sx={{ color: "#2563EB" }}
+          disabled={submitting || loading}
+        >
           ОТМЕНА
         </Button>
         <Button
@@ -280,8 +338,9 @@ export default function BookingDialog({ open, onClose }: BookingDialogProps) {
           form="booking-form"
           variant="contained"
           sx={{ backgroundColor: "#2563EB" }}
+          disabled={submitting || loading}
         >
-          СОЗДАТЬ
+          {isEdit ? "СОХРАНИТЬ" : "СОЗДАТЬ"}
         </Button>
       </DialogActions>
     </Dialog>

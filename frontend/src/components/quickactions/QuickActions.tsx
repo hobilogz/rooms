@@ -4,17 +4,16 @@ import AddIcon from "@mui/icons-material/Add";
 import EditCalendarIcon from "@mui/icons-material/EditCalendar";
 import EditNoteIcon from "@mui/icons-material/EditNote";
 import AddRoomDialog from "../dialogs/AddRoomDialog";
-import BookingDialog from "../dialogs/BookingDialog";
 
-const QuickActions: React.FC = () => {
+type Props = {
+  onCreateBooking: () => void;
+};
+
+const QuickActions: React.FC<Props> = ({ onCreateBooking }) => {
   const [openAddDialog, setOpenAddDialog] = useState(false);
-  const [openBookingDialog, setOpenBookingDialog] = useState(false);
 
   const handleAddDialogOpen = () => setOpenAddDialog(true);
   const handleAddDialogClose = () => setOpenAddDialog(false);
-
-  const handleBookingDialogOpen = () => setOpenBookingDialog(true);
-  const handleBookingDialogClose = () => setOpenBookingDialog(false);
 
   return (
     <Box
@@ -29,7 +28,6 @@ const QuickActions: React.FC = () => {
         marginTop: "30px",
       }}
     >
-      {/* Заголовок */}
       <Typography
         variant="h5"
         sx={{
@@ -42,7 +40,6 @@ const QuickActions: React.FC = () => {
         Быстрые действия
       </Typography>
 
-      {/* Контейнер для кнопок */}
       <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
         {/* Кнопка "Добавить аудиторию" */}
         <Button
@@ -54,17 +51,14 @@ const QuickActions: React.FC = () => {
             justifyContent: "flex-start",
             alignItems: "center",
             padding: "16px",
-            outline: "none", // Убираем обводку
-            "&:focus": {
-              outline: "none", // Убираем обводку при фокусе
-            },
+            outline: "none",
+            "&:focus": { outline: "none" },
             gap: 3,
-            borderRadius: "8px", // скругленные углы
-            borderColor: "#e7e7e7", // синий цвет границы
-
+            borderRadius: "8px",
+            borderColor: "#e7e7e7",
             "&:hover": {
-              borderColor: "#cecece", // темнее при наведении
-              backgroundColor: "#f7f7f7", // светлый фон при наведении
+              borderColor: "#cecece",
+              backgroundColor: "#f7f7f7",
             },
           }}
           onClick={handleAddDialogOpen}
@@ -80,13 +74,7 @@ const QuickActions: React.FC = () => {
               height: "50px",
             }}
           >
-            <AddIcon
-              sx={{
-                color: "#2563EB",
-                fontSize: "33px",
-                textAlign: "left",
-              }}
-            />
+            <AddIcon sx={{ color: "#2563EB", fontSize: "33px" }} />
           </Box>
           <Box>
             <Typography
@@ -122,20 +110,17 @@ const QuickActions: React.FC = () => {
             justifyContent: "flex-start",
             alignItems: "center",
             padding: "16px",
-            outline: "none", // Убираем обводку
-            "&:focus": {
-              outline: "none", // Убираем обводку при фокусе
-            },
+            outline: "none",
+            "&:focus": { outline: "none" },
             gap: 3,
-            borderRadius: "8px", // скругленные углы
-            borderColor: "#e7e7e7", // синий цвет границы
-
+            borderRadius: "8px",
+            borderColor: "#e7e7e7",
             "&:hover": {
-              borderColor: "#cecece", // темнее при наведении
-              backgroundColor: "#f7f7f7", // светлый фон при наведении
+              borderColor: "#cecece",
+              backgroundColor: "#f7f7f7",
             },
           }}
-          onClick={handleBookingDialogOpen}
+          onClick={onCreateBooking}
         >
           <Box
             sx={{
@@ -148,13 +133,7 @@ const QuickActions: React.FC = () => {
               height: "50px",
             }}
           >
-            <EditCalendarIcon
-              sx={{
-                color: "#399b5b",
-                fontSize: "25px",
-                textAlign: "left",
-              }}
-            />
+            <EditCalendarIcon sx={{ color: "#399b5b", fontSize: "25px" }} />
           </Box>
           <Box>
             <Typography
@@ -190,17 +169,14 @@ const QuickActions: React.FC = () => {
             justifyContent: "flex-start",
             alignItems: "center",
             padding: "16px",
-            outline: "none", // Убираем обводку
-            "&:focus": {
-              outline: "none", // Убираем обводку при фокусе
-            },
+            outline: "none",
+            "&:focus": { outline: "none" },
             gap: 3,
-            borderRadius: "8px", // скругленные углы
-            borderColor: "#e7e7e7", // синий цвет границы
-
+            borderRadius: "8px",
+            borderColor: "#e7e7e7",
             "&:hover": {
-              borderColor: "#cecece", // темнее при наведении
-              backgroundColor: "#f7f7f7", // светлый фон при наведении
+              borderColor: "#cecece",
+              backgroundColor: "#f7f7f7",
             },
           }}
         >
@@ -215,13 +191,7 @@ const QuickActions: React.FC = () => {
               height: "50px",
             }}
           >
-            <EditNoteIcon
-              sx={{
-                color: "#eba64b",
-                fontSize: "33px",
-                textAlign: "left",
-              }}
-            />
+            <EditNoteIcon sx={{ color: "#eba64b", fontSize: "33px" }} />
           </Box>
           <Box>
             <Typography
@@ -248,12 +218,8 @@ const QuickActions: React.FC = () => {
         </Button>
       </Box>
 
-      {/* Диалоговые окна */}
+      {/* Диалоговое окно добавления аудитории (можно оставить как есть) */}
       <AddRoomDialog open={openAddDialog} onClose={handleAddDialogClose} />
-      <BookingDialog
-        open={openBookingDialog}
-        onClose={handleBookingDialogClose}
-      />
     </Box>
   );
 };

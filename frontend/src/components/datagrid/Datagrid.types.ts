@@ -1,6 +1,9 @@
 export interface EventRow {
-  id: number;
-  audience: string;
-  period: string;
+  id: string;
+  audienceId: string;
+  startTime: string;
+  endTime: string;
+  startDate: string;
+  endDate: string;
   organizer: string;
 }
